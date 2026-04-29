@@ -399,13 +399,13 @@ export class TrelloClient {
   }
 }
 
-// --- Pure helpers (no `this`) ---
+// --- Pure helpers ---
 
-function toCheckListItem(item: TrelloCheckItem, parentId: string): CheckListItem {
+export function toCheckListItem(item: TrelloCheckItem, parentId: string): CheckListItem {
   return { id: item.id, text: item.name, complete: item.state === 'complete', parentCheckListId: parentId };
 }
 
-function arrayBufferToBase64(buffer: ArrayBuffer): string {
+export function arrayBufferToBase64(buffer: ArrayBuffer): string {
   const bytes = new Uint8Array(buffer);
   const chunks: string[] = [];
   // Process in 8KB chunks to avoid call stack overflow
@@ -415,7 +415,7 @@ function arrayBufferToBase64(buffer: ArrayBuffer): string {
   return btoa(chunks.join(''));
 }
 
-function parseBase64Input(imageData: string, mimeType?: string): { bytes: Uint8Array; resolvedMimeType: string } {
+export function parseBase64Input(imageData: string, mimeType?: string): { bytes: Uint8Array; resolvedMimeType: string } {
   let base64: string;
   let resolvedMimeType = mimeType ?? 'image/png';
   if (imageData.startsWith('data:')) {
@@ -429,7 +429,7 @@ function parseBase64Input(imageData: string, mimeType?: string): { bytes: Uint8A
   return { bytes: Uint8Array.from(atob(base64), c => c.charCodeAt(0)), resolvedMimeType };
 }
 
-function formatCardAsMarkdown(card: EnhancedTrelloCard): string {
+export function formatCardAsMarkdown(card: EnhancedTrelloCard): string {
   const lines: string[] = [];
   const push = (...l: string[]) => lines.push(...l);
 
