@@ -1,7 +1,7 @@
 name = "trello-mcp"
 main = "src/index.ts"
 compatibility_date = "2024-12-01"
-compatibility_flags = ["nodejs_compat"]
+compatibility_flags = ["nodejs_compat", "global_fetch_strictly_public"]
 
 # KV namespace for OAuth token storage (create with: npx wrangler kv namespace create OAUTH_KV)
 [[kv_namespaces]]
