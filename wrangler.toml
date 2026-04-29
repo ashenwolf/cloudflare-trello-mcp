@@ -3,7 +3,16 @@ main = "src/index.ts"
 compatibility_date = "2024-12-01"
 compatibility_flags = ["nodejs_compat"]
 
+# KV namespace for OAuth token storage (create with: npx wrangler kv namespace create OAUTH_KV)
+[[kv_namespaces]]
+binding = "OAUTH_KV"
+id = "REPLACE_ME"  # Replace with your KV namespace ID
+
 # Secrets (set via `wrangler secret put`):
 #   TRELLO_API_KEY
 #   TRELLO_TOKEN
-#   TRELLO_BOARD_ID  (optional)
+#   TRELLO_BOARD_ID         (optional)
+#   GITHUB_CLIENT_ID
+#   GITHUB_CLIENT_SECRET
+#   COOKIE_ENCRYPTION_KEY   (generate with: openssl rand -hex 32)
+#   ALLOWED_USERS           (comma-separated GitHub usernames, e.g. "ashenwolf")
