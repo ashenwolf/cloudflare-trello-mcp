@@ -39,11 +39,10 @@ For local development, create a second OAuth App with `http://localhost:8787` as
 ### 2. Create a KV namespace
 
 ```bash
-cp wrangler.toml.example wrangler.toml
 npx wrangler kv namespace create OAUTH_KV
 ```
 
-Paste the output ID into `wrangler.toml` replacing `<your-kv-namespace-id>`.
+Paste the output ID into `wrangler.toml`, commit, and push.
 
 ### 3. Set secrets
 

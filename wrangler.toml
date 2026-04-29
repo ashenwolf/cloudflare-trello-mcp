@@ -3,8 +3,7 @@ main = "src/index.ts"
 compatibility_date = "2024-12-01"
 compatibility_flags = ["nodejs_compat", "global_fetch_strictly_public"]
 
-# Copy this file to wrangler.toml and fill in your KV namespace ID:
-#   npx wrangler kv namespace create OAUTH_KV
+# Create with: npx wrangler kv namespace create OAUTH_KV
 [[kv_namespaces]]
 binding = "OAUTH_KV"
 id = "<your-kv-namespace-id>"
