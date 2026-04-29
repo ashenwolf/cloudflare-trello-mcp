@@ -1,0 +1,9 @@
+name = "trello-mcp"
+main = "src/index.ts"
+compatibility_date = "2024-12-01"
+compatibility_flags = ["nodejs_compat"]
+
+# Secrets (set via `wrangler secret put`):
+#   TRELLO_API_KEY
+#   TRELLO_TOKEN
+#   TRELLO_BOARD_ID  (optional)
