@@ -4,6 +4,11 @@ export interface Env {
   TRELLO_API_KEY: string;
   TRELLO_TOKEN: string;
   TRELLO_BOARD_ID?: string;
+  GITHUB_CLIENT_ID: string;
+  GITHUB_CLIENT_SECRET: string;
+  COOKIE_ENCRYPTION_KEY: string;
+  OAUTH_KV: KVNamespace;
+  ALLOWED_USERS: string; // comma-separated GitHub usernames
 }
 
 // --- Trello API types ---
