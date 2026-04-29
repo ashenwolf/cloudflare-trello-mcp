@@ -1,6 +1,4 @@
-import { RateLimiter } from './types.js';
-
-export class TokenBucketRateLimiter implements RateLimiter {
+class TokenBucketRateLimiter {
   private tokens: number;
   private lastRefill: number;
   private readonly maxTokens: number;
@@ -13,44 +11,38 @@ export class TokenBucketRateLimiter implements RateLimiter {
     this.refillRate = maxRequests / windowMs;
   }
 
-  private refillTokens(): void {
+  private refill(): void {
     const now = Date.now();
-    const timePassed = now - this.lastRefill;
-    this.tokens = Math.min(this.maxTokens, this.tokens + timePassed * this.refillRate);
+    this.tokens = Math.min(this.maxTokens, this.tokens + (now - this.lastRefill) * this.refillRate);
     this.lastRefill = now;
   }
 
-  canMakeRequest(): boolean {
-    this.refillTokens();
-    if (this.tokens >= 1) {
-      this.tokens -= 1;
-      return true;
-    }
-    return false;
-  }
-
-  async waitForAvailableToken(): Promise<void> {
-    this.refillTokens();
+  async acquire(): Promise<void> {
+    this.refill();
     if (this.tokens >= 1) {
       this.tokens -= 1;
       return;
     }
-    const tokensNeeded = 1 - this.tokens;
-    const msToWait = tokensNeeded / this.refillRate;
+    const msToWait = (1 - this.tokens) / this.refillRate;
     await new Promise<void>((resolve) => setTimeout(resolve, Math.ceil(msToWait)));
     this.tokens = 0;
     this.lastRefill = Date.now();
   }
 }
 
-export function createTrelloRateLimiters() {
+export interface RateLimiter {
+  acquire(): Promise<void>;
+}
+
+// Trello enforces two concurrent limits: 300/10s per API key, 100/10s per token.
+export function createRateLimiter(): RateLimiter {
   const apiKeyLimiter = new TokenBucketRateLimiter(300, 10_000);
   const tokenLimiter = new TokenBucketRateLimiter(100, 10_000);
 
   return {
-    async waitForAvailableToken(): Promise<void> {
-      await apiKeyLimiter.waitForAvailableToken();
-      await tokenLimiter.waitForAvailableToken();
+    async acquire() {
+      await apiKeyLimiter.acquire();
+      await tokenLimiter.acquire();
     },
   };
 }

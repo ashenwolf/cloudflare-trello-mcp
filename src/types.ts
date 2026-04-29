@@ -1,16 +1,20 @@
+// --- Cloudflare Worker bindings ---
+
 export interface Env {
   TRELLO_API_KEY: string;
   TRELLO_TOKEN: string;
   TRELLO_BOARD_ID?: string;
 }
 
+// --- Trello API types ---
+
 export interface TrelloConfig {
   apiKey: string;
   token: string;
   defaultBoardId?: string;
-  boardId?: string;
-  workspaceId?: string;
 }
+
+export type HttpMethod = 'GET' | 'POST' | 'PUT' | 'DELETE';
 
 export interface TrelloBoard {
   id: string;
@@ -70,17 +74,18 @@ export interface TrelloAction {
   };
 }
 
-export interface TrelloLabel {
-  id: string;
-  name: string;
-  color: string;
-}
-
 export interface TrelloMember {
   id: string;
   fullName: string;
   username: string;
   avatarUrl: string | null;
+}
+
+export interface TrelloLabel {
+  id: string;
+  idBoard?: string;
+  name: string;
+  color: string;
 }
 
 export interface TrelloAttachment {
@@ -105,14 +110,9 @@ export interface TrelloCheckItem {
   idMember?: string | null;
 }
 
-export interface TrelloCheckItemUpdate {
-  name?: string;
-  state?: 'complete' | 'incomplete';
+export type TrelloCheckItemUpdate = Partial<Pick<TrelloCheckItem, 'name' | 'state' | 'due' | 'dueReminder' | 'idMember'>> & {
   pos?: number | 'top' | 'bottom';
-  due?: string | null;
-  dueReminder?: number | null;
-  idMember?: string | null;
-}
+};
 
 export interface TrelloChecklist {
   id: string;
@@ -120,13 +120,6 @@ export interface TrelloChecklist {
   idCard: string;
   pos: number;
   checkItems: TrelloCheckItem[];
-}
-
-export interface TrelloLabelDetails {
-  id: string;
-  idBoard: string;
-  name: string;
-  color: string;
 }
 
 export interface TrelloComment {
@@ -155,22 +148,12 @@ export interface TrelloBadges {
   dueComplete: boolean;
 }
 
-export interface EnhancedTrelloCard {
-  id: string;
-  name: string;
-  desc: string;
-  due: string | null;
+export interface EnhancedTrelloCard extends TrelloCard {
   dueComplete: boolean;
   start: string | null;
-  idList: string;
   idBoard: string;
-  closed: boolean;
-  url: string;
-  shortUrl: string;
-  dateLastActivity: string;
   pos: number;
-  labels: TrelloLabelDetails[];
-  idLabels: string[];
+  labels: TrelloLabel[];
   attachments: TrelloAttachment[];
   checklists: TrelloChecklist[];
   members: TrelloMember[];
@@ -181,10 +164,14 @@ export interface EnhancedTrelloCard {
   board?: { id: string; name: string; url: string };
 }
 
-export interface RateLimiter {
-  canMakeRequest(): boolean;
-  waitForAvailableToken(): Promise<void>;
-}
+// --- MCP response helpers ---
+
+export type McpTextContent = { type: 'text'; text: string };
+export type McpImageContent = { type: 'image'; data: string; mimeType: string };
+export type McpContent = McpTextContent | McpImageContent;
+export type McpResult = { content: McpContent[]; isError?: boolean };
+
+// --- Derived checklist types ---
 
 export interface CheckList {
   id: string;
