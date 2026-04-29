@@ -33,14 +33,15 @@ npx wrangler secret put TRELLO_BOARD_ID
 
 ## Deploy
 
-### Via GitHub Actions (recommended)
+### Via Cloudflare Git integration (recommended)
 
-Pushes to `main` auto-deploy via the workflow in `.github/workflows/deploy.yml`.
+Cloudflare Workers can connect directly to your GitHub repo and auto-deploy on every push.
 
-1. Fork/clone this repo and push to GitHub.
-2. Add a **repository secret** named `CLOUDFLARE_API_TOKEN` with a Cloudflare API token that has `Workers Scripts:Edit` permission.
-3. Your Trello secrets (`TRELLO_API_KEY`, `TRELLO_TOKEN`) must already be set via `wrangler secret put` (they live in Cloudflare, not GitHub).
-4. Push to `main` — the workflow installs, builds, and deploys.
+1. Push this repo to GitHub.
+2. Go to **Cloudflare Dashboard → Workers & Pages → Create → Connect to Git**.
+3. Select your repo and branch (`main`).
+4. Cloudflare will auto-deploy on every push — no CI workflow needed.
+5. Set your Trello secrets via `wrangler secret put` (they live in Cloudflare, not GitHub).
 
 ### Manual
 
@@ -106,7 +107,5 @@ On the **Workers Free tier** you get 100,000 requests/day. For personal Trello u
 - **Secrets** — Trello credentials are stored as [Cloudflare Worker secrets](https://developers.cloudflare.com/workers/configuration/secrets/) (encrypted at rest, never in source). `.dev.vars` is git-ignored.
 - **Per-request isolation** — A new `TrelloClient` is created per request to prevent cross-request data leakage (MCP SDK 1.26.0+ security fix).
 - **Pinned dependencies** — All npm packages use exact versions in `package.json` (no `^` or `~` ranges).
-- **Lockfile enforcement** — `npm ci` is used in CI and locally; `.npmrc` sets `package-lock=true` so the lockfile is always respected.
+- **Lockfile enforcement** — `npm ci` is used locally and by Cloudflare's build; `.npmrc` sets `package-lock=true` so the lockfile is always respected.
 - **No install scripts** — `.npmrc` sets `ignore-scripts=true` to block malicious postinstall hooks.
-- **SHA-pinned GitHub Actions** — All actions in the deploy workflow are pinned to full commit SHAs, not mutable tags, preventing tag-hijack attacks.
-- **Least-privilege CI** — The workflow requests only `contents: read` and `deployments: write` permissions.
