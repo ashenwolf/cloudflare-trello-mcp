@@ -183,7 +183,7 @@ describe('TrelloClient', () => {
   });
 
   describe('HTTP layer', () => {
-    it('includes auth params in requests', async () => {
+    it('sends auth via Authorization header, not query params', async () => {
       const fetchMock = mockFetch([]);
       vi.stubGlobal('fetch', fetchMock);
       const client = createTestClient();
@@ -191,8 +191,15 @@ describe('TrelloClient', () => {
       await client.listBoards();
 
       const calledUrl = new URL(fetchMock.mock.calls[0][0]);
-      expect(calledUrl.searchParams.get('key')).toBe('test-key');
-      expect(calledUrl.searchParams.get('token')).toBe('test-token');
+      // Credentials must NOT appear in the URL (logs/intermediaries can capture query strings).
+      expect(calledUrl.searchParams.get('key')).toBeNull();
+      expect(calledUrl.searchParams.get('token')).toBeNull();
+
+      // Credentials must be in the OAuth 1.0a-style Authorization header.
+      const headers = new Headers(fetchMock.mock.calls[0][1].headers);
+      const auth = headers.get('Authorization') ?? '';
+      expect(auth).toContain('OAuth oauth_consumer_key="test-key"');
+      expect(auth).toContain('oauth_token="test-token"');
     });
 
     it('uses correct HTTP method for GET', async () => {
@@ -205,11 +212,15 @@ describe('TrelloClient', () => {
       expect(fetchMock.mock.calls[0][1].method).toBe('GET');
     });
 
-    it('throws on non-OK non-429 responses', async () => {
-      vi.stubGlobal('fetch', mockFetch({ error: 'not found' }, 404));
+    it('throws a sanitized error on non-OK non-429 responses (no upstream body leak)', async () => {
+      vi.stubGlobal('fetch', mockFetch({ error: 'sensitive upstream detail' }, 404));
       const client = createTestClient();
 
-      await expect(client.listBoards()).rejects.toThrow('Trello API 404');
+      // Status code is exposed; the upstream body must NOT be included in the message
+      // returned to MCP clients (it can be logged via console.error instead).
+      const promise = client.listBoards();
+      await expect(promise).rejects.toThrow('Trello API error (status 404)');
+      await expect(promise).rejects.not.toThrow(/sensitive upstream detail/);
     });
 
     it('retries on 429 with backoff', async () => {

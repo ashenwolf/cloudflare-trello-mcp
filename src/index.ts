@@ -43,4 +43,17 @@ export default new OAuthProvider({
   authorizeEndpoint: '/authorize',
   tokenEndpoint: '/token',
   clientRegistrationEndpoint: '/register',
+
+  // Token lifetimes — explicit so behavior is obvious and not subject to library defaults.
+  // Library default for refreshTokenTTL is "never expires", which is unsafe for a public worker.
+  accessTokenTTL: 60 * 60,            // 1 hour
+  refreshTokenTTL: 30 * 24 * 60 * 60, // 30 days
+
+  // OAuth 2.1 requires S256; plain PKCE has no cryptographic protection.
+  allowPlainPKCE: false,
+
+  // Block anonymous Dynamic Client Registration. Your already-registered MCP client in KV
+  // keeps working. If you ever need to re-register (KV wipe, new machine), remove this line,
+  // redeploy, register, then re-enable.
+  disallowPublicClientRegistration: true,
 });

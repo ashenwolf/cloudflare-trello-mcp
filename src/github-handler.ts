@@ -86,9 +86,13 @@ async function handleCallback(request: Request, env: Env & { OAUTH_PROVIDER: OAu
   });
   const user = await userRes.json<GitHubUser>();
 
-  // Check allowlist
+  // Check allowlist — fail closed. An empty/missing list denies everyone, not everyone-allowed.
   const allowedUsers = (env.ALLOWED_USERS ?? '').split(',').map(u => u.trim().toLowerCase()).filter(Boolean);
-  if (allowedUsers.length > 0 && !allowedUsers.includes(user.login.toLowerCase())) {
+  if (allowedUsers.length === 0) {
+    console.error('OAuth callback rejected: ALLOWED_USERS is empty or unset');
+    return new Response('Server misconfigured: access control list is empty', { status: 503 });
+  }
+  if (!allowedUsers.includes(user.login.toLowerCase())) {
     return new Response(`Access denied: ${user.login} is not in the allowed users list`, { status: 403 });
   }
 

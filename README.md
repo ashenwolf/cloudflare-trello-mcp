@@ -126,9 +126,10 @@ On the **Workers Free tier** you get 100,000 requests/day and 1,000 KV reads/day
 
 ## Security & Supply Chain
 
-- **OAuth 2.1 authorization** — MCP endpoint requires a valid access token. Unauthenticated requests get 401. The `OAuthProvider` library handles token issuance, PKCE, and refresh.
-- **GitHub user allowlist** — The `ALLOWED_USERS` secret restricts access to specific GitHub usernames. Users not on the list get 403 at login time.
-- **Secrets** — All credentials stored as [Cloudflare Worker secrets](https://developers.cloudflare.com/workers/configuration/secrets/) (encrypted at rest, never in source). `.dev.vars` is git-ignored.
+- **OAuth 2.1 authorization** — MCP endpoint requires a valid access token. Unauthenticated requests get 401. Enforced server-side: S256 PKCE only (plain rejected), 1h access token TTL, 30d refresh token TTL.
+- **GitHub user allowlist** — The `ALLOWED_USERS` secret restricts access to specific GitHub usernames. Users not on the list get 403 at login time. **Fails closed**: if `ALLOWED_USERS` is missing or empty, the worker rejects all logins with a 503.
+- **Pre-registered clients only** — Public client Dynamic Client Registration is disabled. Connecting from a fresh `mcp-remote` against an empty KV namespace will fail; either pre-register the client or temporarily flip `disallowPublicClientRegistration` off in `src/index.ts` for first-time setup.
+- **Secrets** — All credentials stored as [Cloudflare Worker secrets](https://developers.cloudflare.com/workers/configuration/secrets/) (encrypted at rest, never in source). `.dev.vars` is git-ignored. Trello API key + token are sent via the `Authorization` header — never in URL query strings.
 - **Per-request isolation** — A new `TrelloClient` is created per request to prevent cross-request data leakage.
 - **Pinned dependencies** — All npm packages use exact versions in `package.json`.
 - **Lockfile enforcement** — `npm ci` + `.npmrc` with `package-lock=true`.

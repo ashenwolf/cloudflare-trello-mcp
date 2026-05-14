@@ -31,23 +31,28 @@ export class TrelloClient {
   get activeBoardId() { return this.activeBoardId_; }
   get activeWorkspaceId() { return this.activeWorkspaceId_; }
 
+  // Trello accepts OAuth 1.0a-style Authorization headers on all v1 endpoints.
+  // Using the header (vs query string) keeps credentials out of access logs and URLs.
+  private get authHeader(): string {
+    return `OAuth oauth_consumer_key="${this.apiKey}", oauth_token="${this.token}"`;
+  }
+
   // --- HTTP layer ---
 
   private async request<T>(method: HttpMethod, path: string, opts?: { params?: QueryParams; body?: unknown }, retries = 0): Promise<T> {
     await this.rateLimiter.acquire();
 
     const url = new URL(`${BASE_URL}${path}`);
-    url.searchParams.set('key', this.apiKey);
-    url.searchParams.set('token', this.token);
     if (opts?.params) {
       for (const [k, v] of Object.entries(opts.params)) {
         if (v !== undefined) url.searchParams.set(k, String(v));
       }
     }
 
-    const init: RequestInit = { method };
+    const headers = new Headers({ Authorization: this.authHeader });
+    const init: RequestInit = { method, headers };
     if (opts?.body) {
-      init.headers = { 'Content-Type': 'application/json' };
+      headers.set('Content-Type', 'application/json');
       init.body = JSON.stringify(opts.body);
     }
 
@@ -61,8 +66,10 @@ export class TrelloClient {
     }
 
     if (!res.ok) {
+      // Log full body server-side (visible via `wrangler tail`), but do not leak it to the MCP client.
       const text = await res.text().catch(() => '');
-      throw new Error(`Trello API ${res.status}: ${text}`);
+      console.error(`Trello API error: ${method} ${path} -> ${res.status}: ${text}`);
+      throw new Error(`Trello API error (status ${res.status})`);
     }
 
     const contentType = res.headers.get('content-type') ?? '';
@@ -219,9 +226,17 @@ export class TrelloClient {
     form.append('name', fileName);
 
     await this.rateLimiter.acquire();
-    const url = `${BASE_URL}${paths.cards(cardId).attachments}?key=${this.apiKey}&token=${this.token}`;
-    const res = await fetch(url, { method: 'POST', body: form });
-    if (!res.ok) throw new Error(`Trello API ${res.status}: ${await res.text()}`);
+    const url = `${BASE_URL}${paths.cards(cardId).attachments}`;
+    const res = await fetch(url, {
+      method: 'POST',
+      headers: { Authorization: this.authHeader },
+      body: form,
+    });
+    if (!res.ok) {
+      const text = await res.text().catch(() => '');
+      console.error(`Trello attach error: ${res.status}: ${text}`);
+      throw new Error(`Trello API error (status ${res.status})`);
+    }
     return res.json() as Promise<TrelloAttachment>;
   }
 
@@ -232,9 +247,13 @@ export class TrelloClient {
 
     await this.rateLimiter.acquire();
     const res = await fetch(downloadUrl, {
-      headers: { Authorization: `OAuth oauth_consumer_key="${this.apiKey}", oauth_token="${this.token}"` },
+      headers: { Authorization: this.authHeader },
     });
-    if (!res.ok) throw new Error(`Download failed: ${res.status}`);
+    if (!res.ok) {
+      const text = await res.text().catch(() => '');
+      console.error(`Trello download error: ${res.status}: ${text}`);
+      throw new Error(`Trello API error (status ${res.status})`);
+    }
 
     const base64 = arrayBufferToBase64(await res.arrayBuffer());
     return { data: base64, mimeType: meta.mimeType || 'application/octet-stream', fileName };
