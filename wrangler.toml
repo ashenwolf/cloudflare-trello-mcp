@@ -6,7 +6,7 @@ compatibility_flags = ["nodejs_compat", "global_fetch_strictly_public"]
 # Create with: npx wrangler kv namespace create OAUTH_KV
 [[kv_namespaces]]
 binding = "OAUTH_KV"
-id = "<your-kv-namespace-id>"
+id = "54e8e22b005b46bea1636a480f153cb5"
 
 # Secrets (set via `wrangler secret put`):
 #   TRELLO_API_KEY
