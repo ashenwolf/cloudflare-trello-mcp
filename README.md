@@ -143,7 +143,7 @@ The full threat model, defenses, operator responsibilities, and known limitation
 - **Pre-registered clients only** — Public client Dynamic Client Registration is disabled. Connecting from a fresh `mcp-remote` against an empty KV namespace will fail; either pre-register the client or temporarily flip `disallowPublicClientRegistration` off in `src/index.ts` for first-time setup.
 - **Secrets** — All credentials stored as [Cloudflare Worker secrets](https://developers.cloudflare.com/workers/configuration/secrets/) (encrypted at rest, never in source). `.dev.vars` is git-ignored. Trello API key + token are sent via the `Authorization` header — never in URL query strings.
 - **Per-request isolation** — A new `TrelloClient` is created per request to prevent cross-request data leakage.
-- **Pinned dependencies** — All npm packages use exact versions in `package.json`.
+- **Pinned dependencies** — exact versions for all production dependencies in `package.json`, except `@cloudflare/workers-oauth-provider` (caret-pinned, see [SECURITY.md roadmap](./SECURITY.md#known-limitations--roadmap)).
 - **Lockfile enforcement** — `npm ci` + `.npmrc` with `package-lock=true`.
 - **No install scripts** — `.npmrc` sets `ignore-scripts=true` to block malicious postinstall hooks.
 

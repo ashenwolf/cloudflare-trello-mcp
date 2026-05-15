@@ -99,9 +99,10 @@ configuration beyond setting the documented secrets.
 ### Credential handling
 
 - **Trello API key + token** are sent to Trello via the `Authorization` header
-  using the OAuth 1.0a-style format Trello supports:
-  `Authorization: OAuth oauth_consumer_key="...", oauth_token="..."`. They
-  never appear in URL query strings, request bodies, or response bodies.
+  using Trello's `OAuth oauth_consumer_key="...", oauth_token="..."` header
+  format (key + token only — not a signed OAuth 1.0a request, no signature,
+  no nonce, no timestamp). They never appear in URL query strings, request
+  bodies, or response bodies.
 - **All secrets** are stored as
   [Cloudflare Worker secrets](https://developers.cloudflare.com/workers/configuration/secrets/)
   (encrypted at rest, never in source).
@@ -125,8 +126,10 @@ configuration beyond setting the documented secrets.
 
 ### Supply-chain hygiene
 
-- **Pinned dependencies** — exact versions in `package.json` for first-party
-  deps. (`@cloudflare/workers-oauth-provider` uses caret — see roadmap.)
+- **Pinned dependencies** — exact versions for all production dependencies
+  except `@cloudflare/workers-oauth-provider` (caret-pinned, tracked in
+  the roadmap). Some dev-dependencies (e.g. `vitest`) also use caret
+  pinning; lower-risk since they don't ship to production.
 - **Lockfile enforcement** — `npm ci` + `.npmrc` with `package-lock=true`.
 - **No install scripts** — `.npmrc` sets `ignore-scripts=true` to block
   malicious postinstall hooks.
