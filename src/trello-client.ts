@@ -434,7 +434,14 @@ export function arrayBufferToBase64(buffer: ArrayBuffer): string {
   return btoa(chunks.join(''));
 }
 
+// Defense-in-depth size cap matching the Zod schema in tools.ts. Keeps this
+// helper safe to call from any path even if the schema-level guard is bypassed.
+export const MAX_IMAGE_DATA_LENGTH = 10 * 1024 * 1024;
+
 export function parseBase64Input(imageData: string, mimeType?: string): { bytes: Uint8Array; resolvedMimeType: string } {
+  if (imageData.length > MAX_IMAGE_DATA_LENGTH) {
+    throw new Error(`imageData exceeds ${MAX_IMAGE_DATA_LENGTH} bytes`);
+  }
   let base64: string;
   let resolvedMimeType = mimeType ?? 'image/png';
   if (imageData.startsWith('data:')) {

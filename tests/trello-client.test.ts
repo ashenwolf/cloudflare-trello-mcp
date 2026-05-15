@@ -63,6 +63,12 @@ describe('parseBase64Input', () => {
   it('throws on invalid data URL', () => {
     expect(() => parseBase64Input('data:invalid')).toThrow('Invalid data URL format');
   });
+
+  it('throws on oversized input (defense-in-depth)', () => {
+    // 10 MB + 1 character — must reject before atob is called.
+    const oversized = 'a'.repeat(10 * 1024 * 1024 + 1);
+    expect(() => parseBase64Input(oversized)).toThrow(/exceeds/);
+  });
 });
 
 describe('formatCardAsMarkdown', () => {
