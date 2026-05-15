@@ -4,7 +4,6 @@ import type {
   TrelloChecklist, TrelloCheckItem, TrelloCheckItemUpdate,
   CheckList, CheckListItem, TrelloComment, TrelloMember, TrelloLabel,
 } from './types.js';
-import { createRateLimiter } from './rate-limiter.js';
 import { paths } from './trello-paths.js';
 import { fetchWithTimeout } from './fetch-utils.js';
 
@@ -21,7 +20,6 @@ const TRELLO_DOWNLOAD_TIMEOUT_MS = 30_000;
 type QueryParams = Record<string, string | number | boolean | undefined>;
 
 export class TrelloClient {
-  private readonly rateLimiter = createRateLimiter();
   private readonly apiKey: string;
   private readonly token: string;
   private readonly defaultBoardId?: string;
@@ -47,8 +45,6 @@ export class TrelloClient {
   // --- HTTP layer ---
 
   private async request<T>(method: HttpMethod, path: string, opts?: { params?: QueryParams; body?: unknown }, retries = 0): Promise<T> {
-    await this.rateLimiter.acquire();
-
     const url = new URL(`${BASE_URL}${path}`);
     if (opts?.params) {
       for (const [k, v] of Object.entries(opts.params)) {
@@ -232,7 +228,6 @@ export class TrelloClient {
     form.append('file', new Blob([bytes], { type: resolvedMimeType }), fileName);
     form.append('name', fileName);
 
-    await this.rateLimiter.acquire();
     const url = `${BASE_URL}${paths.cards(cardId).attachments}`;
     const res = await fetchWithTimeout(url, {
       method: 'POST',
@@ -252,7 +247,6 @@ export class TrelloClient {
     const fileName = meta.fileName ?? 'attachment';
     const downloadUrl = `${BASE_URL}${paths.cards(cardId).attachmentDownload(attachmentId, fileName)}`;
 
-    await this.rateLimiter.acquire();
     const res = await fetchWithTimeout(downloadUrl, {
       headers: { Authorization: this.authHeader },
     }, TRELLO_DOWNLOAD_TIMEOUT_MS);

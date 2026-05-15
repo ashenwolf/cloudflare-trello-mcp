@@ -292,18 +292,6 @@ work or design discussion. Listed in roughly decreasing priority.
   Worker quotas and KV writes. Mitigated partially by the recommended
   Cloudflare configuration above; the in-worker piece (Workers Rate Limiting
   binding) is not yet implemented.
-- **In-worker rate limiter to Trello is per-request and effectively a no-op.**
-  `src/rate-limiter.ts` exists but each `TrelloClient` gets a fresh token
-  bucket. Cross-request rate limiting requires Durable Objects or a KV
-  counter.
-- **No `fetch` timeouts on outgoing calls** to Trello or GitHub. A hung
-  upstream burns CPU budget on the worker. Should wrap with `AbortController`.
-- **No size limits on `attach_image_data_to_card`.** The Zod schema is
-  `z.string()` with no `.max()`. A 100MB base64 payload could OOM the worker.
-- **Zod input schemas have no length / format constraints.** Trello IDs
-  should be `z.string().regex(/^[a-f0-9]{24}$/)`; free-text fields should
-  have `.max(N)`. Today, garbage input is forwarded to Trello, wasting a
-  round trip.
 
 ### Medium priority
 
