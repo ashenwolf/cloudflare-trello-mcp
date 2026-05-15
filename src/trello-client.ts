@@ -6,10 +6,17 @@ import type {
 } from './types.js';
 import { createRateLimiter } from './rate-limiter.js';
 import { paths } from './trello-paths.js';
+import { fetchWithTimeout } from './fetch-utils.js';
 
 const BASE_URL = 'https://api.trello.com/1';
 const MAX_RETRIES = 3;
 const BATCH_LIMIT = 50;
+
+// Outgoing-call timeouts. Trello API responses are sub-second under normal
+// load; 10 s gives generous headroom. Downloads can be larger (megabytes of
+// binary), so they get a longer budget — still bounded.
+const TRELLO_FETCH_TIMEOUT_MS = 10_000;
+const TRELLO_DOWNLOAD_TIMEOUT_MS = 30_000;
 
 type QueryParams = Record<string, string | number | boolean | undefined>;
 
@@ -56,7 +63,7 @@ export class TrelloClient {
       init.body = JSON.stringify(opts.body);
     }
 
-    const res = await fetch(url.toString(), init);
+    const res = await fetchWithTimeout(url.toString(), init, TRELLO_FETCH_TIMEOUT_MS);
 
     if (res.status === 429) {
       if (retries >= MAX_RETRIES) throw new Error('Trello API rate limit exceeded after retries');
@@ -227,11 +234,11 @@ export class TrelloClient {
 
     await this.rateLimiter.acquire();
     const url = `${BASE_URL}${paths.cards(cardId).attachments}`;
-    const res = await fetch(url, {
+    const res = await fetchWithTimeout(url, {
       method: 'POST',
       headers: { Authorization: this.authHeader },
       body: form,
-    });
+    }, TRELLO_FETCH_TIMEOUT_MS);
     if (!res.ok) {
       const text = await res.text().catch(() => '');
       console.error(`Trello attach error: ${res.status}: ${text}`);
@@ -246,9 +253,9 @@ export class TrelloClient {
     const downloadUrl = `${BASE_URL}${paths.cards(cardId).attachmentDownload(attachmentId, fileName)}`;
 
     await this.rateLimiter.acquire();
-    const res = await fetch(downloadUrl, {
+    const res = await fetchWithTimeout(downloadUrl, {
       headers: { Authorization: this.authHeader },
-    });
+    }, TRELLO_DOWNLOAD_TIMEOUT_MS);
     if (!res.ok) {
       const text = await res.text().catch(() => '');
       console.error(`Trello download error: ${res.status}: ${text}`);

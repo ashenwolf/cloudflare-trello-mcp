@@ -1,5 +1,10 @@
 import type { AuthRequest, OAuthHelpers } from '@cloudflare/workers-oauth-provider';
 import type { Env } from './types.js';
+import { fetchWithTimeout } from './fetch-utils.js';
+
+// GitHub's OAuth and user APIs are consistently sub-second; 5s is generous
+// and keeps users from staring at a hung redirect.
+const GITHUB_FETCH_TIMEOUT_MS = 5_000;
 
 interface GitHubUser {
   login: string;
@@ -64,7 +69,7 @@ async function handleCallback(request: Request, env: Env & { OAUTH_PROVIDER: OAu
   const oauthReqInfo: AuthRequest = JSON.parse(storedJson);
 
   // Exchange code for GitHub access token
-  const tokenRes = await fetch('https://github.com/login/oauth/access_token', {
+  const tokenRes = await fetchWithTimeout('https://github.com/login/oauth/access_token', {
     method: 'POST',
     headers: { 'Content-Type': 'application/x-www-form-urlencoded', Accept: 'application/json' },
     body: new URLSearchParams({
@@ -73,7 +78,7 @@ async function handleCallback(request: Request, env: Env & { OAUTH_PROVIDER: OAu
       code,
       redirect_uri: new URL('/callback', request.url).href,
     }),
-  });
+  }, GITHUB_FETCH_TIMEOUT_MS);
 
   const tokenData = await tokenRes.json<{ access_token?: string; error?: string }>();
   if (!tokenData.access_token) {
@@ -81,9 +86,9 @@ async function handleCallback(request: Request, env: Env & { OAUTH_PROVIDER: OAu
   }
 
   // Fetch GitHub user info
-  const userRes = await fetch('https://api.github.com/user', {
+  const userRes = await fetchWithTimeout('https://api.github.com/user', {
     headers: { Authorization: `Bearer ${tokenData.access_token}`, 'User-Agent': 'trello-mcp-worker' },
-  });
+  }, GITHUB_FETCH_TIMEOUT_MS);
   const user = await userRes.json<GitHubUser>();
 
   // Check allowlist — fail closed. An empty/missing list denies everyone, not everyone-allowed.
