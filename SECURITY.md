@@ -122,6 +122,26 @@ configuration beyond setting the documented secrets.
 - **`.dev.vars`** (local dev) is git-ignored and never committed. Verified
   in git history.
 
+### Incoming rate limiting
+
+- The Worker is wrapped at the top level with [Workers Rate Limiting](https://developers.cloudflare.com/workers/runtime-apis/bindings/rate-limit/)
+  bindings declared in `wrangler.toml`. The check runs **before** the OAuth
+  provider library routes the request, so it covers every endpoint —
+  including `/token` and `/register`, which the library handles internally:
+  - `/mcp`: 60 req / 60 s, keyed on the bearer token (one bucket per
+    authenticated client; unauthenticated probers share a single
+    `'anonymous'` bucket).
+  - All other paths (`/authorize`, `/callback`, `/token`, `/register`,
+    plus any unmatched route): 10 req / 60 s, keyed on `cf-connecting-ip`.
+- Exceeded limits return HTTP 429 with `Retry-After: 60`.
+- The wrapper **fails open** if the binding throws — rate limiting is
+  defence-in-depth, not authentication, and a misconfigured limiter must
+  not lock everyone out. Errors go to `console.error` for `wrangler tail`.
+- The bindings are local to each Cloudflare data center; a globally
+  distributed attacker can multiply the limit by the number of POPs they
+  hit. For higher-grade defence, combine with the Cloudflare-edge rate
+  limit rule (see operator section below).
+
 ### Per-request isolation
 
 - A new `TrelloClient` is created per request. The mutable `activeBoardId` /
@@ -287,11 +307,10 @@ work or design discussion. Listed in roughly decreasing priority.
 
 ### High priority (Day 2)
 
-- **No incoming rate limit at the worker.** A burst of unauthenticated
-  requests to `/authorize` / `/token` / `/register` / `/mcp` will burn through
-  Worker quotas and KV writes. Mitigated partially by the recommended
-  Cloudflare configuration above; the in-worker piece (Workers Rate Limiting
-  binding) is not yet implemented.
+(All Day 2 items have landed. The Workers Rate Limiting binding is now
+active for both `/mcp` (per-token, 60 req/min) and the OAuth flow
+endpoints (per-IP, 10 req/min). See "Defenses Implemented in Code"
+above.)
 
 ### Medium priority
 

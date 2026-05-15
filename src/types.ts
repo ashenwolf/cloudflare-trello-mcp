@@ -1,5 +1,11 @@
 // --- Cloudflare Worker bindings ---
 
+// Note: `OAUTH_PROVIDER` is injected by `@cloudflare/workers-oauth-provider` at
+// runtime into the env object passed to our handlers. Declared here so all
+// handler signatures can use plain `Env` instead of the intersection type
+// `Env & { OAUTH_PROVIDER: OAuthHelpers }`.
+import type { OAuthHelpers } from '@cloudflare/workers-oauth-provider';
+
 export interface Env {
   TRELLO_API_KEY: string;
   TRELLO_TOKEN: string;
@@ -8,7 +14,10 @@ export interface Env {
   GITHUB_CLIENT_SECRET: string;
   COOKIE_ENCRYPTION_KEY: string;
   OAUTH_KV: KVNamespace;
-  ALLOWED_USERS: string; // comma-separated GitHub usernames
+  OAUTH_PROVIDER: OAuthHelpers; // injected by the OAuth provider library
+  ALLOWED_USERS: string;        // comma-separated GitHub usernames
+  MCP_LIMIT: RateLimit;         // Workers Rate Limiting binding for /mcp
+  AUTH_LIMIT: RateLimit;        // Workers Rate Limiting binding for OAuth flow endpoints
 }
 
 // --- Trello API types ---

@@ -5,6 +5,7 @@ import { TrelloClient } from './trello-client.js';
 import { allTools } from './tools.js';
 import { mcpError } from './mcp-helpers.js';
 import { createGitHubHandler } from './github-handler.js';
+import { checkRateLimit, ipKey, bearerTokenKey } from './rate-limit.js';
 import type { Env } from './types.js';
 
 function createServer(env: Env) {
@@ -28,18 +29,31 @@ function createServer(env: Env) {
   return server;
 }
 
-// The OAuthProvider wraps our MCP handler:
-// - Requests to /mcp are authenticated via OAuth access token, then forwarded to createMcpHandler
-// - Requests to /authorize, /token, /register are handled by the OAuth protocol
-// - All other requests go to the GitHub OAuth handler (login flow)
-export default new OAuthProvider({
+// The OAuthProvider routes:
+//   /mcp                        -> apiHandler (after token validation)
+//   /authorize, /callback       -> defaultHandler (the GitHub OAuth flow)
+//   /token, /register           -> handled internally by the library
+//
+// We must rate-limit BEFORE the library routes, otherwise /token and /register
+// are unprotected. The pattern: build the OAuthProvider as usual, then wrap it
+// at the top level. Every inbound request is gated:
+//   - /mcp traffic: per bearer token, MCP_LIMIT (60/min)
+//   - everything else: per cf-connecting-ip, AUTH_LIMIT (10/min)
+//
+// `createServer(env)` is intentionally NOT hoisted — it captures the per-request
+// `env` and creates a fresh `TrelloClient` to preserve per-request isolation
+// (see SECURITY.md). `githubHandler` IS hoisted because it's stateless and
+// receives `env` as a parameter.
+const githubHandler = createGitHubHandler();
+
+const oauthProvider = new OAuthProvider({
   apiRoute: '/mcp',
   apiHandler: {
     async fetch(request: Request, env: Env, ctx: ExecutionContext): Promise<Response> {
       return createMcpHandler(createServer(env))(request, env, ctx);
     },
   },
-  defaultHandler: createGitHubHandler(),
+  defaultHandler: githubHandler,
   authorizeEndpoint: '/authorize',
   tokenEndpoint: '/token',
   clientRegistrationEndpoint: '/register',
@@ -57,3 +71,16 @@ export default new OAuthProvider({
   // redeploy, register, then re-enable.
   disallowPublicClientRegistration: true,
 });
+
+export default {
+  async fetch(request: Request, env: Env, ctx: ExecutionContext): Promise<Response> {
+    const isMcp = new URL(request.url).pathname === '/mcp';
+    const limited = await checkRateLimit(
+      isMcp
+        ? { binding: env.MCP_LIMIT, key: bearerTokenKey(request), limitName: 'mcp' }
+        : { binding: env.AUTH_LIMIT, key: ipKey(request), limitName: 'auth' },
+    );
+    if (limited) return limited;
+    return oauthProvider.fetch(request, env, ctx);
+  },
+} satisfies ExportedHandler<Env>;

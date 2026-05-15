@@ -1,4 +1,4 @@
-import type { AuthRequest, OAuthHelpers } from '@cloudflare/workers-oauth-provider';
+import type { AuthRequest } from '@cloudflare/workers-oauth-provider';
 import type { Env } from './types.js';
 import { fetchWithTimeout } from './fetch-utils.js';
 
@@ -21,7 +21,7 @@ export type AuthProps = {
 // Minimal GitHub OAuth handler — no framework dependencies.
 export function createGitHubHandler() {
   return {
-    async fetch(request: Request, env: Env & { OAUTH_PROVIDER: OAuthHelpers }): Promise<Response> {
+    async fetch(request: Request, env: Env): Promise<Response> {
       const url = new URL(request.url);
 
       if (url.pathname === '/authorize') {
@@ -36,7 +36,7 @@ export function createGitHubHandler() {
   };
 }
 
-async function handleAuthorize(request: Request, env: Env & { OAUTH_PROVIDER: OAuthHelpers }): Promise<Response> {
+async function handleAuthorize(request: Request, env: Env): Promise<Response> {
   const oauthReqInfo = await env.OAUTH_PROVIDER.parseAuthRequest(request);
   if (!oauthReqInfo.clientId) return new Response('Invalid request', { status: 400 });
 
@@ -54,7 +54,7 @@ async function handleAuthorize(request: Request, env: Env & { OAUTH_PROVIDER: OA
   return Response.redirect(githubUrl.href, 302);
 }
 
-async function handleCallback(request: Request, env: Env & { OAUTH_PROVIDER: OAuthHelpers }): Promise<Response> {
+async function handleCallback(request: Request, env: Env): Promise<Response> {
   const url = new URL(request.url);
   const code = url.searchParams.get('code');
   const state = url.searchParams.get('state');

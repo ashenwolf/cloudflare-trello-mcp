@@ -8,6 +8,35 @@ compatibility_flags = ["nodejs_compat", "global_fetch_strictly_public"]
 binding = "OAUTH_KV"
 id = "54e8e22b005b46bea1636a480f153cb5"
 
+# Workers Rate Limiting bindings.
+# Requires Wrangler 4.36.0+. Period must be 10 or 60 (seconds).
+# namespace_id is a unique string identifier per Cloudflare account.
+# See https://developers.cloudflare.com/workers/runtime-apis/bindings/rate-limit/
+#
+# Both bindings are applied at the top of `fetch` in src/index.ts, BEFORE
+# the OAuthProvider routes the request. This means /token and /register —
+# which the OAuth provider library handles internally and never delegates
+# to our handlers — are still gated.
+
+# Authenticated MCP traffic (/mcp) — keyed on the bearer token.
+# 60/minute is comfortably above realistic personal-use traffic.
+[[ratelimits]]
+name = "MCP_LIMIT"
+namespace_id = "1001"
+[ratelimits.simple]
+limit = 60
+period = 60
+
+# All other endpoints (/authorize, /callback, /token, /register, anything
+# else) — keyed on cf-connecting-ip. 10/minute is generous for human login
+# flows; high enough to avoid friction, low enough to choke abuse.
+[[ratelimits]]
+name = "AUTH_LIMIT"
+namespace_id = "1002"
+[ratelimits.simple]
+limit = 10
+period = 60
+
 # Secrets (set via `wrangler secret put`):
 #   TRELLO_API_KEY
 #   TRELLO_TOKEN
