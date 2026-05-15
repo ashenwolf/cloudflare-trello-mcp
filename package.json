@@ -7,8 +7,10 @@
     "dev": "wrangler dev",
     "deploy": "wrangler deploy",
     "typecheck": "tsc --noEmit",
-    "test": "vitest run",
-    "test:watch": "vitest"
+    "test": "node scripts/check-lockfile.mjs && vitest run",
+    "test:watch": "vitest",
+    "lockfile:fix": "node scripts/fix-lockfile.mjs",
+    "lockfile:check": "node scripts/check-lockfile.mjs"
   },
   "dependencies": {
     "@cloudflare/workers-oauth-provider": "^0.4.0",

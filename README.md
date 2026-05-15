@@ -124,6 +124,20 @@ npm run dev
 
 The dev server runs at `http://localhost:8787/mcp`.
 
+### Lockfile maintenance
+
+After any `npm install`, run:
+
+```bash
+npm run lockfile:fix
+```
+
+This is a workaround for an [npm 10 bug](https://github.com/npm/cli/issues/7447) that mislabels platform-specific optional binaries (esbuild/sharp/rollup native binaries) as `extraneous` instead of `optional`. Without the fix, Cloudflare's `npm ci` (Linux x64) fails with EBADPLATFORM on entries like `@esbuild/aix-ppc64`. The script is idempotent and safe to re-run.
+
+`npm run lockfile:check` exits non-zero if the lockfile has unfixed entries. It runs as the first step of `npm test` so any regression is caught before the test suite. (A `pretest` hook would be cleaner but `.npmrc` has `ignore-scripts=true` for supply-chain hardening, which also blocks lifecycle hooks.)
+
+Once the upstream npm bug is fixed and you upgrade, you can remove `scripts/fix-lockfile.mjs`, `scripts/check-lockfile.mjs`, the `lockfile:fix` / `lockfile:check` entries in `package.json`, the `node scripts/check-lockfile.mjs &&` prefix on the `test` script, and this section.
+
 ## Connect from an MCP Client
 
 MCP clients that support OAuth (like Claude Desktop via `mcp-remote`) will be redirected to GitHub to log in, then back to the MCP server with an access token.
