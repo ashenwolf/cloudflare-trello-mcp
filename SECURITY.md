@@ -36,22 +36,35 @@ file public issues for sensitive findings.
 
 ### Trust boundaries
 
-```
-[Public internet]
-        |
-        v
-[Cloudflare edge: DDoS / WAF / Rate limit] <-- operator-configured
-        |
-        v
-[Worker: OAuth provider + GitHub allowlist] <-- code defenses (this repo)
-        |
-        v
-[Worker: MCP handler -> Trello client]
-        |
-        v
-[Trello API] (trusted; auth via OAuth 1.0a header)
-[GitHub OAuth] (trusted; auth via client_secret + state)
-[Cloudflare KV] (trusted; per-account isolation)
+```mermaid
+flowchart TB
+    net([Public internet])
+
+    subgraph cf [Cloudflare edge — operator-configured]
+        edge[DDoS protection / WAF / Rate limiting]
+    end
+
+    subgraph worker [Worker — code defenses, this repo]
+        oauth[OAuth provider + GitHub allowlist]
+        mcp[MCP handler → Trello client]
+        oauth --> mcp
+    end
+
+    subgraph trusted [Trusted external services]
+        trello[Trello API]
+        github[GitHub OAuth]
+        kv[(Cloudflare KV)]
+    end
+
+    net --> edge --> oauth
+    mcp --> trello
+    oauth --> github
+    oauth --> kv
+
+    classDef untrusted fill:#fee,stroke:#c44
+    classDef trustedNode fill:#efe,stroke:#4a4
+    class net untrusted
+    class trello,github,kv trustedNode
 ```
 
 A compromise of the operator's Cloudflare account, GitHub account, or local
@@ -189,20 +202,38 @@ Suggested rules:
 
 ### Recommended: Workers Rate Limiting API (free, in-worker)
 
-This is the right tool for limiting `/mcp` itself, since WAF Bot
-challenges would break MCP clients (see below). Add to `wrangler.toml`:
+This is the right tool for limiting `/mcp` itself, since WAF bot
+challenges would break MCP clients (see below). Requires Wrangler 4.36.0+.
+Add to `wrangler.toml`:
 
 ```toml
-[[unsafe.bindings]]
+[[ratelimits]]
 name = "MCP_RATE_LIMIT"
-type = "ratelimit"
-namespace_id = "1001"
-simple = { limit = 60, period = 60 }
+namespace_id = "1001"  # any positive integer string, unique per account
+
+[ratelimits.simple]
+limit = 60          # max calls to limit() per period, per Cloudflare location
+period = 60         # window in seconds — must be 10 or 60
 ```
 
-Then in your handler, key off `request.headers.get('cf-connecting-ip')` and
-return 429 if the limit is exceeded. This is part of the Day 2 roadmap and is
-not yet wired up in code.
+Then in your handler, call `await env.MCP_RATE_LIMIT.limit({ key })` and
+return 429 if `success` is `false`.
+
+**Choosing the key matters.** Cloudflare's docs explicitly warn against
+keying on IP address (shared by users on mobile networks, corporate NATs,
+privacy proxies). For this worker:
+
+- On `/mcp`: key on the **authenticated user's GitHub login**
+  (available in `props.login` from the OAuth flow). One MCP user can't be
+  rate-limited by another user's traffic, and you avoid penalising shared
+  IPs.
+- On `/authorize` and `/callback` (unauthenticated): the only signal you
+  have is the IP. Use `cf-connecting-ip` here as a fallback, accepting the
+  shared-IP false-positive risk on these low-frequency browser flows.
+
+Not yet wired up in code — see the Day 2 roadmap.
+
+Reference: [Cloudflare Rate Limiting binding docs](https://developers.cloudflare.com/workers/runtime-apis/bindings/rate-limit/).
 
 ### DO NOT enable: Bot Fight Mode
 

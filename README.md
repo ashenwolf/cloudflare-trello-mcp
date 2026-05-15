@@ -11,6 +11,43 @@ Ported from [delorenj/mcp-server-trello](https://github.com/delorenj/mcp-server-
 - **Secrets via `wrangler secret`** — API keys are never in code or config files.
 - **Native `fetch`** — no axios/Node.js dependencies; runs on the Workers runtime directly.
 
+### Login + tool-call flow
+
+```mermaid
+sequenceDiagram
+    autonumber
+    actor User
+    participant Client as MCP client<br/>(mcp-remote)
+    participant Worker as Cloudflare Worker
+    participant KV as OAuth KV
+    participant GH as GitHub OAuth
+    participant Trello
+
+    Note over User,Trello: First connection — interactive login
+    Client->>Worker: GET /authorize (PKCE S256)
+    Worker->>KV: store state (TTL 10m)
+    Worker-->>Client: 302 → github.com/login/oauth/authorize
+    User->>GH: log in, approve
+    GH-->>Worker: GET /callback?code&state
+    Worker->>KV: validate + delete state
+    Worker->>GH: POST /access_token (client_secret)
+    GH-->>Worker: github_access_token
+    Worker->>GH: GET /user
+    GH-->>Worker: { login, name, email }
+    Worker->>Worker: check ALLOWED_USERS<br/>(fail-closed)
+    Worker-->>Client: 302 → redirect with authorization code
+    Client->>Worker: POST /token (code + code_verifier)
+    Worker->>KV: issue MCP access+refresh tokens
+    Worker-->>Client: { access_token, refresh_token }
+
+    Note over User,Trello: Steady state — every tool call
+    Client->>Worker: POST /mcp (Authorization: Bearer …)
+    Worker->>KV: validate token
+    Worker->>Trello: API call<br/>(Authorization: OAuth key=…, token=…)
+    Trello-->>Worker: response
+    Worker-->>Client: MCP result
+```
+
 ## Prerequisites
 
 1. A [Cloudflare account](https://dash.cloudflare.com/sign-up) (free tier works)
