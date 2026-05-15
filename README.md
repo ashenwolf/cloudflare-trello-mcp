@@ -126,6 +126,18 @@ On the **Workers Free tier** you get 100,000 requests/day and 1,000 KV reads/day
 
 ## Security & Supply Chain
 
+### Threat model — at a glance
+
+This is a **personal MCP server for one operator**. Defenses target opportunistic attackers, scripted abuse, and casual repo readers — not nation-state actors or sophisticated targeted attacks.
+
+- **Protected**: Trello credentials, GitHub OAuth secret, MCP access tokens, Worker compute & KV quotas.
+- **Trusted**: Cloudflare, GitHub, Trello, the operator's own machine.
+- **Out of scope**: compromise of the operator's Cloudflare / GitHub / Trello account or local machine; supply-chain attacks against npm dependencies; physical attacks.
+
+The full threat model, defenses, operator responsibilities, and known limitations are documented in [SECURITY.md](./SECURITY.md). It also covers the recommended Cloudflare configuration (rate-limiting rule + WAF custom rules) and explicitly calls out the Cloudflare features you should *not* enable (Bot Fight Mode breaks `mcp-remote`).
+
+### Defenses implemented in code
+
 - **OAuth 2.1 authorization** — MCP endpoint requires a valid access token. Unauthenticated requests get 401. Enforced server-side: S256 PKCE only (plain rejected), 1h access token TTL, 30d refresh token TTL.
 - **GitHub user allowlist** — The `ALLOWED_USERS` secret restricts access to specific GitHub usernames. Users not on the list get 403 at login time. **Fails closed**: if `ALLOWED_USERS` is missing or empty, the worker rejects all logins with a 503.
 - **Pre-registered clients only** — Public client Dynamic Client Registration is disabled. Connecting from a fresh `mcp-remote` against an empty KV namespace will fail; either pre-register the client or temporarily flip `disallowPublicClientRegistration` off in `src/index.ts` for first-time setup.
@@ -134,3 +146,7 @@ On the **Workers Free tier** you get 100,000 requests/day and 1,000 KV reads/day
 - **Pinned dependencies** — All npm packages use exact versions in `package.json`.
 - **Lockfile enforcement** — `npm ci` + `.npmrc` with `package-lock=true`.
 - **No install scripts** — `.npmrc` sets `ignore-scripts=true` to block malicious postinstall hooks.
+
+### Reporting a vulnerability
+
+See [SECURITY.md](./SECURITY.md#reporting-a-vulnerability).
